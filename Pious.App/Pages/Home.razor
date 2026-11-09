@@ -1,0 +1,289 @@
+@page "/"
+@using System.Security.Cryptography
+@using Microsoft.JSInterop
+@using Pious.App.Services
+@inject MessageCryptography Cryptography
+@inject IJSRuntime JS
+
+<PageTitle>Pious — Encrypt. Decrypt. Stay Secure.</PageTitle>
+
+<div class="app-shell @(isLight ? "theme-light" : "theme-dark")">
+    <main class="workspace">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="Pious home">
+                <span class="brand-mark" aria-hidden="true">P</span>
+                <span class="brand-name">Pious</span>
+                <span class="brand-divider"></span>
+                <span class="tagline">Encrypt. Decrypt. Stay Secure.</span>
+            </a>
+            <button class="theme-toggle" @onclick="ToggleTheme" aria-label="Toggle color theme">
+                @(isLight ? "☾" : "☼")
+            </button>
+        </header>
+
+        <section class="key-section" aria-labelledby="key-heading">
+            <div class="section-title-row">
+                <h1 id="key-heading"><span class="title-icon" aria-hidden="true">⚿</span> Encryption Key</h1>
+                <span class="key-hint">Used only on this device</span>
+            </div>
+            <div class="key-controls">
+                <div class="key-input-wrap">
+                    <input class="key-input" type="@(showKey ? "text" : "password")" @bind="passphrase" @bind:event="oninput"
+                           autocomplete="off" spellcheck="false" placeholder="Enter a passphrase (12+ characters)" aria-label="Encryption passphrase" />
+                    <button class="icon-button reveal-button" @onclick="ToggleKeyVisibility" aria-label="@(showKey ? "Hide passphrase" : "Show passphrase")">
+                        @(showKey ? "◉" : "◎")
+                    </button>
+                </div>
+                <button class="button button-outline generate-button" @onclick="GenerateKey">
+                    <span aria-hidden="true">✣</span> Generate random key
+                </button>
+            </div>
+            <div class="strength-row" aria-live="polite">
+                <span class="strength-shield" aria-hidden="true">✓</span>
+                <span>Passphrase quality: <strong class="strength-label strength-@strengthClass">@strengthLabel</strong></span>
+                <div class="strength-track" role="progressbar" aria-label="Passphrase quality estimate" aria-valuemin="0" aria-valuemax="4" aria-valuenow="@strength">
+                    <span class="strength-fill strength-fill-@strengthClass"></span>
+                </div>
+                <span class="strength-note">rough estimate</span>
+            </div>
+        </section>
+
+        <section class="algorithm-section" aria-labelledby="algorithm-heading">
+            <h2 id="algorithm-heading"><span class="title-icon" aria-hidden="true">⚙</span> Encryption Algorithm</h2>
+            <div class="algorithm-grid" role="group" aria-label="Encryption algorithm">
+                @foreach (var algorithm in Algorithms)
+                {
+                    <button class="algorithm-button @(selectedAlgorithm == algorithm.Name ? "selected" : "")"
+                            @onclick="() => SelectAlgorithm(algorithm.Name)"
+                            aria-pressed="@(selectedAlgorithm == algorithm.Name)">
+                        <span class="algorithm-icon" aria-hidden="true">@algorithm.Icon</span>
+                        @algorithm.Name
+                    </button>
+                }
+            </div>
+            @if (selectedAlgorithm is "Blowfish" or "Twofish")
+            {
+                <p class="algorithm-warning">
+                    Compatibility mode: @selectedAlgorithm uses CBC encryption with an HMAC integrity check.
+                    Prefer AES-GCM or ChaCha20-Poly1305 for new messages.
+                </p>
+            }
+        </section>
+
+        <section class="operation-section" aria-labelledby="operation-heading">
+            <h2 id="operation-heading"><span class="title-icon" aria-hidden="true">⇄</span> Operation</h2>
+            <div class="operation-switch" role="group" aria-label="Choose operation">
+                <button class="operation-button @(operation == "Encrypt" ? "selected" : "")" @onclick="SelectEncrypt" aria-pressed="@(operation == "Encrypt")">
+                    <span aria-hidden="true">▣</span> Encrypt
+                </button>
+                <button class="operation-button @(operation == "Decrypt" ? "selected" : "")" @onclick="SelectDecrypt" aria-pressed="@(operation == "Decrypt")">
+                    <span aria-hidden="true">♙</span> Decrypt
+                </button>
+            </div>
+        </section>
+
+        <section class="message-grid" aria-label="Message encryption workspace">
+            <article class="message-card">
+                <h2><span class="card-icon" aria-hidden="true">▤</span> Input Message</h2>
+                <textarea class="message-area" @bind="inputMessage" @bind:event="oninput"
+                          placeholder="@(operation == "Encrypt" ? "Type or paste your message..." : "Paste a Pious encrypted message...")"
+                          aria-label="Input message" maxlength="1000000"></textarea>
+                <div class="input-actions">
+                    <button class="button button-secondary" @onclick="PasteAsync"><span aria-hidden="true">▢</span> Paste</button>
+                    <button class="button button-secondary" @onclick="ClearInput"><span aria-hidden="true">⌫</span> Clear</button>
+                </div>
+                <button class="button button-primary submit-button" @onclick="ProcessMessageAsync" disabled="@isProcessing">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span>Processing…</span>
+                    }
+                    else
+                    {
+                        <span aria-hidden="true">@(operation == "Encrypt" ? "▣" : "♙")</span>
+                        <span>@(operation == "Encrypt" ? "Encrypt Message" : "Decrypt Message")</span>
+                    }
+                </button>
+            </article>
+
+            <article class="message-card output-card">
+                <div class="output-heading">
+                    <h2><span class="card-icon" aria-hidden="true">▤</span> Output</h2>
+                    @if (!string.IsNullOrEmpty(outputMessage))
+                    {
+                        <button class="icon-button clear-output" @onclick="ClearOutput" aria-label="Clear output">×</button>
+                    }
+                </div>
+                <textarea class="message-area output-area" @bind="outputMessage" readonly
+                          placeholder="Result appears here..." aria-label="Output message"></textarea>
+                <button class="button button-secondary copy-button" @onclick="CopyOutputAsync" disabled="@string.IsNullOrEmpty(outputMessage)">
+                    <span aria-hidden="true">▢</span> Copy output
+                </button>
+                @if (!string.IsNullOrEmpty(statusMessage))
+                {
+                    <p class="status-message @(isError ? "status-error" : "status-success")" role="status">@statusMessage</p>
+                }
+            </article>
+        </section>
+
+        <footer class="footer">
+            <span class="footer-shield" aria-hidden="true">⛨</span>
+            <span>Your messages. Your keys. Your privacy.</span>
+        </footer>
+    </main>
+</div>
+
+@code {
+    private static readonly (string Name, string Icon)[] Algorithms =
+    [
+        ("AES", "⬡"),
+        ("Blowfish", "◈"),
+        ("Twofish", "◆"),
+        ("ChaCha20", "ϟ")
+    ];
+
+    private string passphrase = string.Empty;
+    private string inputMessage = string.Empty;
+    private string outputMessage = string.Empty;
+    private string statusMessage = string.Empty;
+    private string selectedAlgorithm = "AES";
+    private string operation = "Encrypt";
+    private bool showKey;
+    private bool isLight;
+    private bool isProcessing;
+    private bool isError;
+
+    private int strength
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(passphrase))
+            {
+                return 0;
+            }
+
+            var score = 0;
+            if (passphrase.Length >= 12) score++;
+            if (passphrase.Length >= 20) score++;
+            if (passphrase.Any(char.IsLower) && passphrase.Any(char.IsUpper)) score++;
+            if (passphrase.Any(char.IsDigit) || passphrase.Any(character => !char.IsLetterOrDigit(character))) score++;
+            return score;
+        }
+    }
+
+    private string strengthClass => strength switch
+    {
+        0 or 1 => "weak",
+        2 => "fair",
+        3 => "good",
+        _ => "strong"
+    };
+
+    private string strengthLabel => string.IsNullOrEmpty(passphrase) ? "Not set" : strengthClass switch
+    {
+        "weak" => "Weak",
+        "fair" => "Fair",
+        "good" => "Good",
+        _ => "Strong"
+    };
+
+    private void ToggleTheme() => isLight = !isLight;
+    private void ToggleKeyVisibility() => showKey = !showKey;
+    private void SelectAlgorithm(string algorithm) => selectedAlgorithm = algorithm;
+    private void SelectEncrypt() => SetOperation("Encrypt");
+    private void SelectDecrypt() => SetOperation("Decrypt");
+    private void SetOperation(string value)
+    {
+        operation = value;
+        statusMessage = string.Empty;
+    }
+
+    private void GenerateKey()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        passphrase = Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        CryptographicOperations.ZeroMemory(bytes);
+        statusMessage = "A new random key was generated. Save it somewhere safe; it cannot be recovered.";
+        isError = false;
+    }
+
+    private void ClearInput()
+    {
+        inputMessage = string.Empty;
+        statusMessage = string.Empty;
+    }
+
+    private void ClearOutput()
+    {
+        outputMessage = string.Empty;
+        statusMessage = string.Empty;
+    }
+
+    private async Task ProcessMessageAsync()
+    {
+        isProcessing = true;
+        statusMessage = string.Empty;
+        try
+        {
+            outputMessage = operation == "Encrypt"
+                ? await Cryptography.EncryptAsync(inputMessage, passphrase, selectedAlgorithm)
+                : await Cryptography.DecryptAsync(inputMessage, passphrase);
+            statusMessage = operation == "Encrypt"
+                ? "Encrypted successfully. Keep your passphrase safe; it cannot be recovered."
+                : "Decrypted and authenticated successfully.";
+            isError = false;
+        }
+        catch (ArgumentException exception)
+        {
+            outputMessage = string.Empty;
+            statusMessage = exception.Message;
+            isError = true;
+        }
+        catch (CryptographicException exception)
+        {
+            outputMessage = string.Empty;
+            statusMessage = exception.Message;
+            isError = true;
+        }
+        catch (JSException)
+        {
+            outputMessage = string.Empty;
+            statusMessage = "Browser cryptography is unavailable. Open Pious over HTTPS or localhost and try again.";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task CopyOutputAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("piousCrypto.copyText", outputMessage);
+            statusMessage = "Output copied to clipboard.";
+            isError = false;
+        }
+        catch (JSException)
+        {
+            statusMessage = "Clipboard access failed. Select and copy the output manually.";
+            isError = true;
+        }
+    }
+
+    private async Task PasteAsync()
+    {
+        try
+        {
+            inputMessage = await JS.InvokeAsync<string>("piousCrypto.pasteText");
+            statusMessage = "Pasted from clipboard.";
+            isError = false;
+        }
+        catch (JSException)
+        {
+            statusMessage = "Clipboard access failed. Paste the message manually.";
+            isError = true;
+        }
+    }
+}
