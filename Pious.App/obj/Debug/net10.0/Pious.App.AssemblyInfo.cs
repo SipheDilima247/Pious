@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pious.App")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+448d4bbeeb1633ac02c0ae10e9ee45e80811ac52")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pious.App")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pious.App")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

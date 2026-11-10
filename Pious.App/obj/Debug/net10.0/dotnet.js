@@ -5,7 +5,7 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
   "mainAssemblyName": "Pious.App",
   "applicationEnvironment": "Development",
   "resources": {
-    "hash": "sha256-nheUAfmh7H4lENg8hT3PcQhUqcDdNeKSbAqGmqD63vY=",
+    "hash": "sha256-0dAl81Ylh1axCC9txlJHC+f0y6UcDuLQphyMKXMYsj0=",
     "jsModuleNative": [
       {
         "name": "dotnet.native.q38003gvqi.js"
@@ -1248,16 +1248,16 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
       },
       {
         "virtualPath": "Pious.App.wasm",
-        "name": "Pious.App.u355vlqfo9.wasm",
-        "hash": "sha256-5gM5WTBmaGadOCH/qsvJZpCRpiP7MRIIuhw0QhZWKoE=",
+        "name": "Pious.App.u03ebpcikk.wasm",
+        "hash": "sha256-zjWXU5v+MbdIuuQdN5IrP5IDvUsWXBL0SOgTx2NMRUY=",
         "cache": "force-cache"
       }
     ],
     "pdb": [
       {
         "virtualPath": "Pious.App.pdb",
-        "name": "Pious.App.i2fu51w8qn.pdb",
-        "hash": "sha256-ynBKldAgoSZBmVvpnl+lZ7vozJFeelWWSK2v8cK6TBE=",
+        "name": "Pious.App.ud87xsrv3w.pdb",
+        "hash": "sha256-MkcASyRjfmRqvW3CRSfpbAML3bSlJl3/rPZtTRKBqsY=",
         "cache": "force-cache"
       }
     ],

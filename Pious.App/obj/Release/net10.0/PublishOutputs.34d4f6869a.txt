@@ -1,0 +1,4 @@
+C:\Users\siphe\Pious\Pious.App\bin\Release\net10.0\publish\wwwroot\index.html
+C:\Users\siphe\Pious\Pious.App\bin\Release\net10.0\publish\Pious.App.runtimeconfig.json
+C:\Users\siphe\Pious\Pious.App\bin\Release\net10.0\publish\dotnet.js
+C:\Users\siphe\Pious\Pious.App\bin\Release\net10.0\publish\web.config
